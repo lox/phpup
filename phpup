@@ -19,11 +19,12 @@ $user = posix_getpwuid(posix_geteuid());
 $options = getopt("f:d:p:");
 $dir = isset($options['d']) ? $options['d'] : getcwd();
 $port = isset($options['p']) ? $options['p'] : 8000;
+$tmpdir = rtrim(getenv('TMPDIR'),'/');
 
 // ----------------------------
 // env setups 
 
-$apachedir = $dir.'/.apache';
+$apachedir = $tmpdir."/.phpup{$port}";
 
 printf(">> building local apache instance in %s\n", $dir);
 
