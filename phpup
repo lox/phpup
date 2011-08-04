@@ -6,27 +6,40 @@
  * @author Lachlan Donald <lachlan@ljd.cc>
  */
 
-if(in_array('--help', $argv))
+if(!isset($argv[1]) || in_array('--help', $argv))
 {
-	echo "usage: phpup [-f myfile.php] [-d dir]\n\n";
-	echo " -f myfile.php  -  route all requests through file\n";
-	echo " -d dir         -  use an alternate docroot\n";
-	echo " -p port        -  use an alternate port, defaults to 8000\n";
+	echo "usage: phpup [-p port] [file or dir...] \n\n";
+	echo " -p port  -  use an alternate port, defaults to 8000\n";
 	exit(1);
 }
 
 $user = posix_getpwuid(posix_geteuid());
-$options = getopt("f:d:p:");
-$dir = isset($options['d']) ? $options['d'] : getcwd();
-$port = isset($options['p']) ? $options['p'] : 8000;
+$options = getopt("p:");
 $tmpdir = rtrim(getenv('TMPDIR'),'/');
+$port = isset($options['p']) ? $options['p'] : 8000;
+
+// serve either a file or a directory
+if(is_file($argv[1]))
+{
+	$file = realpath($argv[1]); 
+	$dir = dirname($file);
+}
+else if(is_dir($argv[1]))
+{
+	$file = false;
+	$dir = realpath($argv[1]);
+}
+else
+{
+	die("{$argv[1]} not readable");
+}
 
 // ----------------------------
 // env setups 
 
 $apachedir = $tmpdir."/.phpup{$port}";
 
-printf(">> building local apache instance in %s\n", $dir);
+printf(">> building local apache instance with %s\n", $file ? $file : $dir);
 
 if(is_dir($apachedir))
 	`rm -rf $apachedir`;
@@ -64,14 +77,23 @@ CustomLog "access.log" common
 ErrorLog "error.log"\n
 APACHECONF;
 
-if(isset($options['f']))
+if($file)
 {
 	$config .= <<<"REWRITECONF"
 LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule .* /{$options['f']} [L,QSA]\n
+RewriteRule .* /{$file} [L,QSA]\n
 REWRITECONF;
+}
+else
+{
+	$config .= <<<"DIRCONFIG"
+<Directory $dir>
+Options All Indexes FollowSymLinks MultiViews
+AllowOverride all
+</Directory>\n
+DIRCONFIG;
 }
 
 file_put_contents("$apachedir/apache.conf", $config);
