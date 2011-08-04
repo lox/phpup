@@ -6,33 +6,44 @@
  * @author Lachlan Donald <lachlan@ljd.cc>
  */
 
-if(!isset($argv[1]) || in_array('--help', $argv))
+$args = array();
+$opts = array();
+
+// process arguments
+for($i=1; $i<$argc; $i++)
+{
+	if(preg_match('/^-(p)$/',$argv[$i]) && isset($argv[$i+1]))
+		$opts[$argv[$i]] = $argv[++$i];
+	else
+		$args[] = $argv[$i];
+}
+
+if(empty($args) || in_array('--help', $args))
 {
 	echo "usage: phpup [-p port] [file or dir...] \n\n";
 	echo " -p port  -  use an alternate port, defaults to 8000\n";
 	exit(1);
 }
 
-$user = posix_getpwuid(posix_geteuid());
-$options = getopt("p:");
-$tmpdir = rtrim(getenv('TMPDIR'),'/');
-$port = isset($options['p']) ? $options['p'] : 8000;
-
 // serve either a file or a directory
-if(is_file($argv[1]))
+if(is_file($args[0]))
 {
-	$file = realpath($argv[1]); 
+	$file = realpath($args[0]); 
 	$dir = dirname($file);
 }
-else if(is_dir($argv[1]))
+else if(is_dir($args[0]))
 {
 	$file = false;
-	$dir = realpath($argv[1]);
+	$dir = realpath($args[0]);
 }
 else
 {
-	die("{$argv[1]} not readable");
+	die("{$args[0]} not readable");
 }
+
+$tmpdir = rtrim(getenv('TMPDIR'),'/');
+$port = isset($opts['-p']) ? $opts['-p'] : 8000;
+$user = posix_getpwuid(fileowner($args[0]));
 
 // ----------------------------
 // env setups 
@@ -71,16 +82,17 @@ DocumentRoot $dir
 LoadModule mime_module /usr/libexec/apache2/mod_mime.so
 LoadModule php5_module /usr/libexec/apache2/libphp5.so 
 LoadModule log_config_module /usr/libexec/apache2/mod_log_config.so
+LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
 AddHandler php5-script .php 
 LogFormat "%h %l %u %t \"%r\" %>s %b" common
 CustomLog "access.log" common
-ErrorLog "error.log"\n
+ErrorLog "error.log"
+LogLevel warn\n
 APACHECONF;
 
 if($file)
 {
 	$config .= <<<"REWRITECONF"
-LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteRule .* /{$file} [L,QSA]\n
@@ -103,9 +115,15 @@ $handle = popen("httpd -f apache.conf -d $apachedir -D FOREGROUND", "r");
 printf(">> listening...\n");
 
 sleep(2);
-$accesslog = popen("tail -f $apachedir/access.log 2>&1", 'r');
+$accesslog = popen("tail -f -q $apachedir/error.log $apachedir/access.log 2>&1", 'r');
 while(!feof($accesslog)) 
-	printf(fgets($accesslog));
+{
+	$line = fgets($accesslog);
+
+	// notices can't be supressed
+	if(!preg_match('/\[notice\]/', $line))
+		echo $line;
+}
 
 
 
