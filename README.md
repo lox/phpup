@@ -9,14 +9,14 @@ This was developed under OSX 10.7, although I'm fairly sure most modern OSX's wi
 work.
 
 Running
-=======
+-------
 
 ```bash
 ./phpup -p 8000 -f helloworld.php
 ```
 
 Disclaimer
-==========
+----------
 
 This is a 20 minute hack. I'm sure I missed some critical apache config. Patches
 appreciated!
