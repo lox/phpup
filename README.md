@@ -12,7 +12,7 @@ Running
 -------
 
 ```bash
-./phpup -p 8000 -f helloworld.php
+./phpup -p 8000 helloworld.php
 ```
 
 Disclaimer
