@@ -6,6 +6,10 @@
  * @author Lachlan Donald <lachlan@ljd.cc>
  */
 
+pcntl_signal(SIGWINCH,  function($signo) {
+	echo "signal handler called\n";
+});
+
 $args = array();
 $opts = array();
 
@@ -18,17 +22,23 @@ for($i=1; $i<$argc; $i++)
 		$args[] = $argv[$i];
 }
 
-if(empty($args) || in_array('--help', $args))
+if(in_array('--help', $args))
 {
 	echo "usage: phpup [-p port] [file or dir...] \n\n";
 	echo " -p port  -  use an alternate port, defaults to 8000\n";
 	exit(1);
 }
 
-// serve either a file or a directory
-if(is_file($args[0]))
+// serve cwd
+if(empty($args))
 {
-	$file = realpath($args[0]); 
+	$file = false;
+	$dir = getcwd();
+}
+// serve either a file or a directory
+else if(is_file($args[0]))
+{
+	$file = realpath($args[0]);
 	$dir = dirname($file);
 }
 else if(is_dir($args[0]))
@@ -41,12 +51,36 @@ else
 	die("{$args[0]} not readable");
 }
 
-$tmpdir = rtrim(getenv('TMPDIR'),'/');
+$tmpdir = rtrim(sys_get_temp_dir(),'/');
 $port = isset($opts['-p']) ? $opts['-p'] : 8000;
-$user = posix_getpwuid(fileowner($args[0]));
+$user = exec('whoami');
 
 // ----------------------------
-// env setups 
+// env setups
+
+$binary = exec('which httpd') ?: exec('which apache2');
+
+foreach(array('/usr/lib/apache2/modules', '/usr/libexec/apache2') as $d)
+	if(is_dir($d)) $modulesdir = $d;
+
+if(empty($binary)) die("Unable to detect apache binary");
+if(empty($modulesdir)) die("Unable to detect apache modules directory");
+
+$modulesconf = '';
+$compiled = array_map('trim', explode("\n", `$binary -l | grep .c`));
+$modules = array(
+	'mime_module' => 'mod_mime',
+	'php5_module' => 'libphp5',
+	'log_config_module' => 'mod_log_config',
+	'rewrite_module' => 'mod_rewrite',
+);
+
+// detect non-compiled modules
+foreach($modules as $m=>$so)
+{
+	if(!in_array("{$so}.c", $compiled))
+		$modulesconf .= sprintf("LoadModule %s %s/%s.so\n", $m, $modulesdir, $so);
+}
 
 $apachedir = $tmpdir."/.phpup{$port}";
 
@@ -58,12 +92,12 @@ if(is_dir($apachedir))
 mkdir($apachedir, 0700, true);
 
 $config = <<<"APACHECONF"
-ServerRoot $apachedir 
-PidFile httpd.pid 
+ServerRoot $apachedir
+PidFile httpd.pid
 ScoreBoardFile httpd.scoreboard
 LockFile accept.lock
 HostnameLookups off
-User {$user['name']} 
+User {$user}
 ServerSignature Off
 UseCanonicalName Off
 Timeout 50
@@ -78,15 +112,15 @@ ServerLimit 400
 MaxClients 400
 MaxRequestsPerChild 10000
 Listen *:$port
-DocumentRoot $dir 
-LoadModule mime_module /usr/libexec/apache2/mod_mime.so
-LoadModule php5_module /usr/libexec/apache2/libphp5.so 
-LoadModule log_config_module /usr/libexec/apache2/mod_log_config.so
-LoadModule rewrite_module /usr/libexec/apache2/mod_rewrite.so
-AddHandler php5-script .php 
+DocumentRoot $dir
+
+$modulesconf
+
+AddHandler php5-script .php
 LogFormat "%h %l %u %t \"%r\" %>s %b" common
 CustomLog "access.log" common
 ErrorLog "error.log"
+TypesConfig /etc/mime.types
 LogLevel warn\n
 APACHECONF;
 
@@ -110,13 +144,13 @@ DIRCONFIG;
 
 file_put_contents("$apachedir/apache.conf", $config);
 
-printf(">> starting apache on port %d\n", $port);
-$handle = popen("httpd -f apache.conf -d $apachedir -D FOREGROUND", "r");
+printf(">> starting apache on *:%d as %s\n", $port, $user);
+$handle = popen("$binary -f apache.conf -d $apachedir -D FOREGROUND", "r");
 printf(">> listening...\n");
 
 sleep(2);
 $accesslog = popen("tail -f -q $apachedir/error.log $apachedir/access.log 2>&1", 'r');
-while(!feof($accesslog)) 
+while(!feof($accesslog))
 {
 	$line = fgets($accesslog);
 
