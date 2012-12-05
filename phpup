@@ -6,10 +6,6 @@
  * @author Lachlan Donald <lachlan@ljd.cc>
  */
 
-pcntl_signal(SIGWINCH,  function($signo) {
-	echo "signal handler called\n";
-});
-
 $args = array();
 $opts = array();
 
@@ -120,9 +116,11 @@ AddHandler php5-script .php
 LogFormat "%h %l %u %t \"%r\" %>s %b" common
 CustomLog "access.log" common
 ErrorLog "error.log"
-TypesConfig /etc/mime.types
 LogLevel warn\n
 APACHECONF;
+
+if(file_exists('/etc/mime.types'))
+	$config .= "TypesConfig /etc/mime.types\n\n";
 
 if($file)
 {
@@ -143,9 +141,11 @@ DIRCONFIG;
 }
 
 file_put_contents("$apachedir/apache.conf", $config);
-
 printf(">> starting apache on *:%d as %s\n", $port, $user);
-$handle = popen("$binary -f apache.conf -d $apachedir -D FOREGROUND", "r");
+
+$cmd = "$binary -f apache.conf -d $apachedir -D FOREGROUND";
+$handle = popen($cmd, "r");
+
 printf(">> listening...\n");
 
 sleep(2);
