@@ -1,0 +1,13 @@
+{
+    "name": "lox/phpup",
+    "description": "Run a minimal apache instance for a given php script or directory",
+    "keywords": ["webserver","apache"],
+    "license": "MIT",
+    "authors": [
+        { "name": "Lachlan Donald", "email": "lachlan@ljd.cc" }
+    ],
+    "require": {
+      "php": ">=5.3.0"
+    },
+    "bin": ["phpup"]
+}
