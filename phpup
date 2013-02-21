@@ -9,6 +9,12 @@
 $args = array();
 $opts = array();
 
+// Ignore resize
+
+pcntl_signal ( 28, function() {
+  echo "Ignoring resize event\n";
+})
+
 // process arguments
 for($i=1; $i<$argc; $i++)
 {
