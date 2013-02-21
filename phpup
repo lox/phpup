@@ -144,9 +144,14 @@ file_put_contents("$apachedir/apache.conf", $config);
 printf(">> starting apache on *:%d as %s\n", $port, $user);
 
 $cmd = "$binary -f apache.conf -d $apachedir -D FOREGROUND";
-pcntl_sigprocmask(SIG_BLOCK, array(SIGWINCH));
+
+if (function_exists("pcntl_sigprocmask"))
+  pcntl_sigprocmask(SIG_BLOCK, array(SIGWINCH));
+
 $handle = popen($cmd, "r");
-pcntl_sigprocmask(SIG_BLOCK, array(SIGWINCH));
+
+if (function_exists("pcntl_sigprocmask"))
+  pcntl_sigprocmask(SIG_BLOCK, array(SIGWINCH));
 
 printf(">> listening...\n");
 
