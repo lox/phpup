@@ -160,6 +160,3 @@ while(!feof($accesslog))
 	if(!preg_match('/\[notice\]/', $line))
 		echo $line;
 }
-
-
-
