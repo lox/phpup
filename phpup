@@ -69,6 +69,8 @@ $modules = array(
 	'php5_module' => 'libphp5',
 	'log_config_module' => 'mod_log_config',
 	'rewrite_module' => 'mod_rewrite',
+	'dir_module' => 'mod_dir',
+	'alias_module' => 'mod_alias',
 );
 
 // detect non-compiled modules
