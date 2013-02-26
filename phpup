@@ -49,7 +49,9 @@ else
 
 $tmpdir = rtrim(sys_get_temp_dir(),'/');
 $port = isset($opts['-p']) ? $opts['-p'] : 8000;
-$user = exec('whoami');
+$uid = getmyuid();
+$passwd = posix_getpwuid($uid);
+$user = $passwd["name"];
 
 // ----------------------------
 // env setups
