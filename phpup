@@ -159,12 +159,29 @@ if (function_exists("pcntl_sigprocmask"))
 printf(">> listening...\n");
 
 sleep(2);
-$accesslog = popen("tail -f -q $apachedir/error.log $apachedir/access.log 2>&1", 'r');
-while(!feof($accesslog))
-{
-	$line = fgets($accesslog);
 
-	// notices can't be supressed
-	if(!preg_match('/\[notice\]/', $line))
-		echo $line;
+$error_log = fopen("$apachedir/error.log");
+$access_log = fopen("$apachedir/access.log");
+
+$streams = array($error_log, $access_log);
+while (count($streams) > 0)
+{
+  $active_streams = clone $streams;
+  $_ = array();
+  if (stream_select($active_streams, $_, $_) > 0)
+  {
+    foreach($active_streams as $stream)
+    {
+      $buf = fgets($stream);
+      if ($buf === NULL)
+      {
+        $streams = array_filter($streams, function ($el) use ($stream) { return $el == $stream; });
+      }
+      else
+      {
+        if(!preg_match('/\[notice\]/', $line))
+          echo $line;
+      }
+    }
+  }
 }
