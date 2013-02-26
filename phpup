@@ -127,8 +127,9 @@ if(file_exists('/etc/mime.types'))
 if($file)
 {
 	$config .= <<<"REWRITECONF"
+DocumentRoot {$dir}
 RewriteEngine On
-RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond {$dir}/%{REQUEST_FILENAME} !-f
 RewriteRule .* /{$file} [L,QSA]\n
 REWRITECONF;
 }
