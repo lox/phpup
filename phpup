@@ -12,16 +12,29 @@ $opts = array();
 // process arguments
 for($i=1; $i<$argc; $i++)
 {
-	if(preg_match('/^-(p)$/',$argv[$i]) && isset($argv[$i+1]))
+	if(preg_match('/^-(p|s)$/',$argv[$i]) && isset($argv[$i+1]))
 		$opts[$argv[$i]] = $argv[++$i];
 	else
 		$args[] = $argv[$i];
 }
 
+if (!isset($opts['-s']))
+{
+	$opts['-s'] = "fifo";
+}
+else
+{
+	if (!in_array($opts['-s'], array("pipe", "fifo")))
+	{
+		throw new Exception("Invalid storage");
+	}
+}
+
 if(in_array('--help', $args))
 {
-	echo "usage: phpup [-p port] [file or dir...] \n\n";
-	echo " -p port  -  use an alternate port, defaults to 8000\n";
+	echo "usage: phpup [-p port] [-s store] [file or dir...] \n\n";
+	echo " -p port	-  use an alternate port, defaults to 8000\n";
+	echo " -s store -  use <store> for storage, available are fifo and file\n";
 	exit(1);
 }
 
@@ -88,6 +101,15 @@ if(is_dir($apachedir))
 	`rm -rf $apachedir`;
 
 mkdir($apachedir, 0700, true);
+
+// Create fifos to avoid filling the fs
+
+if ($opts['-s'] == "fifo" && function_exists("posix_mkfifo"))
+{
+	posix_mkfifo("$apachedir/access.log");
+	posix_mkfifo("$apachedir/error.log");
+}
+
 
 $config = <<<"APACHECONF"
 ServerRoot $apachedir
@@ -159,12 +181,29 @@ if (function_exists("pcntl_sigprocmask"))
 printf(">> listening...\n");
 
 sleep(2);
-$accesslog = popen("tail -f -q $apachedir/error.log $apachedir/access.log 2>&1", 'r');
-while(!feof($accesslog))
-{
-	$line = fgets($accesslog);
 
-	// notices can't be supressed
-	if(!preg_match('/\[notice\]/', $line))
-		echo $line;
+$error_log = fopen("$apachedir/error.log");
+$access_log = fopen("$apachedir/access.log");
+
+$streams = array($error_log, $access_log);
+while (count($streams) > 0)
+{
+  $active_streams = clone $streams;
+  $_ = array();
+  if (stream_select($active_streams, $_, $_) > 0)
+  {
+    foreach($active_streams as $stream)
+    {
+      $buf = fgets($stream);
+      if ($buf === NULL)
+      {
+        $streams = array_filter($streams, function ($el) use ($stream) { return $el == $stream; });
+      }
+      else
+      {
+        if(!preg_match('/\[notice\]/', $line))
+          echo $line;
+      }
+    }
+  }
 }
