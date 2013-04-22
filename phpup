@@ -20,8 +20,9 @@ for($i=1; $i<$argc; $i++)
 
 if(in_array('--help', $args))
 {
-	echo "usage: phpup [-p port] [file or dir...] \n\n";
+	echo "usage: phpup [-p port] [-o] [file or dir...] \n\n";
 	echo " -p port  -  use an alternate port, defaults to 8000\n";
+	echo " -o       -  open the url in your browser under OSX\n";
 	exit(1);
 }
 
@@ -156,7 +157,10 @@ $handle = popen($cmd, "r");
 if (function_exists("pcntl_sigprocmask"))
   pcntl_sigprocmask(SIG_BLOCK, array(SIGWINCH));
 
-printf(">> listening...\n");
+printf(">> listening (http://localhost:%d)...\n", $port);
+
+if(in_array('-o', $args))
+	`open 'http://localhost:$port'`;
 
 sleep(2);
 $accesslog = popen("tail -f -q $apachedir/error.log $apachedir/access.log 2>&1", 'r');
