@@ -72,6 +72,8 @@ $modules = array(
 	'rewrite_module' => 'mod_rewrite',
 	'dir_module' => 'mod_dir',
 	'alias_module' => 'mod_alias',
+	'authz_host_module' => 'mod_authz_host',
+	'env_module' => 'mod_env',
 );
 
 // detect non-compiled modules
