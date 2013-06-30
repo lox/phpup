@@ -57,11 +57,17 @@ $user = exec('whoami');
 
 $binary = exec('which httpd') ?: exec('which apache2');
 
-foreach(array('/usr/lib/apache2/modules', '/usr/libexec/apache2') as $d)
-	if(is_dir($d)) $modulesdir = $d;
+$possiblemoduledirs = array(
+	exec('php-config --prefix').'/libexec/apache2', // compiled PHP default
+	'/usr/lib/apache2/modules', // Ubuntu
+	'/usr/libexec/apache2', // MacOS X
+);
+$modulesdirs = array();
+foreach($possiblemoduledirs as $d)
+	if(is_dir($d)) $modulesdirs[] = $d;
 
 if(empty($binary)) die("Unable to detect apache binary");
-if(empty($modulesdir)) die("Unable to detect apache modules directory");
+if(empty($modulesdirs)) die("Unable to detect apache modules directory");
 
 $modulesconf = '';
 $compiled = array_map('trim', explode("\n", `$binary -l | grep .c`));
@@ -80,7 +86,19 @@ $modules = array(
 foreach($modules as $m=>$so)
 {
 	if(!in_array("{$so}.c", $compiled))
-		$modulesconf .= sprintf("LoadModule %s %s/%s.so\n", $m, $modulesdir, $so);
+	{
+		// search module dirs for module file
+		foreach ($modulesdirs as $d)
+		{
+			$modulepath = sprintf("%s/%s.so", $d, $so);
+			if (is_file($modulepath)) break;
+			$modulepath = "";
+		}
+		if ($modulepath)
+			$modulesconf .= sprintf("LoadModule %s %s\n", $m, $modulepath, $so);
+		else
+			printf(">> Warning: Module %s wasn't found\n", $so);
+	}
 }
 
 $apachedir = $tmpdir."/.phpup{$port}";
