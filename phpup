@@ -134,6 +134,7 @@ MaxClients 400
 MaxRequestsPerChild 10000
 Listen *:$port
 DocumentRoot $dir
+DirectoryIndex index.php index.phtml index.html index.htm
 
 $modulesconf
 
